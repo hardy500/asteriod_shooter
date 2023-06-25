@@ -2,10 +2,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
+#include <math.h>
+
 #define WINDOW_WIDTH  1280
 #define WINDOW_HEIGHT 720
-#define FPS 120
-#define FRAME_DELAY  (1000/FPS)
 
 enum Select { TTF, IMG };
 
@@ -104,13 +104,28 @@ int main() {
 
   // ------------------------------------------------------------------------------------
 
-  Uint32 frame_start;
+  Uint32 ticks_previous = SDL_GetTicks();
+  Uint32 ticks_current;
+  float delta;
+
+  const float framerate_target = 120;
+
+  //Uint32 frame_start;
   int frame_time;
+  Uint32 frame_delay;
+
 
   bool quit = false;
   SDL_Event event;
   while (!quit) {
-    frame_start = SDL_GetTicks();
+    ticks_current = SDL_GetTicks();
+    frame_time = ticks_current - ticks_previous;
+    delta = frame_time / 1000.0f;
+    ticks_previous = ticks_current;
+
+    // Cap fram rate
+    frame_delay = 1000 / framerate_target;
+    if (frame_time < frame_delay) { SDL_Delay(frame_delay - frame_time); }
 
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
@@ -120,9 +135,7 @@ int main() {
 
     update_ship_pos(&rect_ship);
 
-    if (rect_laser.y != -100) {
-      rect_laser.y -= 10;
-    }
+    if (rect_laser.y != -100) { rect_laser.y -= round(200 * delta); }
 
     SDL_RenderClear(renderer);
 
@@ -132,10 +145,6 @@ int main() {
     SDL_RenderCopy(renderer, texture_text, NULL, &rect_text);
 
     SDL_RenderPresent(renderer);
-
-    // Limit frames
-    frame_time = SDL_GetTicks() - frame_start;
-    if (frame_time < FRAME_DELAY) {SDL_Delay(FRAME_DELAY - frame_time);}
 
   }
   // ------------------------------------------------------------------------------------
