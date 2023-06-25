@@ -4,6 +4,8 @@
 
 #include <math.h>
 #include <vector>
+#include <cstdlib>
+#include <random>
 
 #define WINDOW_WIDTH  1280
 #define WINDOW_HEIGHT 720
@@ -70,7 +72,7 @@ SDL_Texture* texture_create(SDL_Window* window,
   }
 }
 
-SDL_Rect rect_create(SDL_Texture* texture, int x, int y) {
+SDL_Rect rect_create(SDL_Texture* texture, int x=0, int y=0) {
   SDL_Rect rect = {x, y, 0, 0};
   SDL_QueryTexture(texture, NULL, NULL, &(rect.w), &(rect.h));
   return rect;
@@ -94,6 +96,26 @@ void update_laser(std::vector<SDL_Rect>& lasers, float delta, int speed=300) {
     }
 }
 
+float randomf(float x1, float x2) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<float> dis(x1, x2);
+  return dis(gen);
+}
+
+void update_meteor(std::vector<SDL_Rect>& meteors, float delta, int speed=300) {
+    auto it = meteors.begin();
+    while (it != meteors.end()) {
+      it->y += round(speed * delta);
+      if (it->y > WINDOW_HEIGHT) {
+        it = meteors.erase(it);
+      } else {
+        it++;
+      }
+    }
+}
+
+
 bool laser_timer(bool can_shoot, Uint32 time_shoot, int duration=500) {
   if (!can_shoot) {
     Uint32 time_current = SDL_GetTicks();
@@ -115,24 +137,26 @@ int main() {
   Select img = IMG;
   Select ttf = TTF;
 
-  SDL_Texture* texture_bg    = texture_create(window, renderer, "assets/graphics/background.png", img);
-  SDL_Texture* texture_ship  = texture_create(window, renderer, "assets/graphics/ship.png", img);
-  SDL_Texture* texture_laser = texture_create(window, renderer, "assets/graphics/laser.png", img);
-  SDL_Texture* texture_text  = texture_create(window, renderer, "assets/graphics/subatomic.ttf", ttf);
+  SDL_Texture* texture_bg      = texture_create(window, renderer, "assets/graphics/background.png", img);
+  SDL_Texture* texture_ship    = texture_create(window, renderer, "assets/graphics/ship.png", img);
+  SDL_Texture* texture_meteor  = texture_create(window, renderer, "assets/graphics/meteor.png", img);
+  SDL_Texture* texture_laser   = texture_create(window, renderer, "assets/graphics/laser.png", img);
+  SDL_Texture* texture_text    = texture_create(window, renderer, "assets/graphics/subatomic.ttf", ttf);
 
   SDL_Rect rect_text  = rect_create(texture_text, (WINDOW_WIDTH/2 - 80), (WINDOW_HEIGHT-80));
   SDL_Rect rect_ship  = rect_create(texture_ship, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
 
   std::vector<SDL_Rect> lasers;
+  std::vector<SDL_Rect> meteors;
 
   // ------------------------------------------------------------------------------------
 
   Uint32 ticks_previous = SDL_GetTicks();
   Uint32 ticks_current;
   Uint32 time_shoot;
+  int frequency = 50;
   float delta;
   bool can_shoot = true;
-
 
   const float framerate_target = 120;
 
@@ -147,12 +171,14 @@ int main() {
     frame_time = ticks_current - ticks_previous;
     delta = frame_time / 1000.0f;
     ticks_previous = ticks_current;
+    int meteor_shower = (rand()%frequency == 1);
 
     // Cap fram rate
     frame_delay = 1000 / framerate_target;
     if (frame_time < frame_delay) { SDL_Delay(frame_delay - frame_time); }
 
     while (SDL_PollEvent(&event)) {
+
       if (event.type == SDL_QUIT) {
         quit = true;
       }
@@ -166,10 +192,17 @@ int main() {
         can_shoot = false;
         time_shoot = SDL_GetTicks();
       }
+
+      if (meteor_shower) {
+        SDL_Rect rect_meteor = rect_create(texture_meteor,randomf(-100, WINDOW_WIDTH + 100.0f), randomf(-100, -50));
+        rect_meteor.x += randomf(-0.5f, 0.5f)*delta;
+        meteors.push_back(rect_meteor);
+      }
     }
 
     update_ship(&rect_ship);
     update_laser(lasers, delta);
+    update_meteor(meteors, delta);
     can_shoot = laser_timer(can_shoot, time_shoot);
 
     SDL_RenderClear(renderer);
@@ -178,6 +211,7 @@ int main() {
     SDL_RenderCopy(renderer, texture_text, NULL, &rect_text);
 
     for (SDL_Rect laser: lasers) { SDL_RenderCopy(renderer, texture_laser, NULL, &laser); }
+    for (SDL_Rect meteor: meteors) { SDL_RenderCopy(renderer, texture_meteor, NULL, &meteor); }
 
     SDL_RenderCopy(renderer, texture_ship, NULL, &rect_ship);
 
