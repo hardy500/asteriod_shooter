@@ -3,6 +3,7 @@
 #include <SDL2/SDL_ttf.h>
 
 #include <math.h>
+#include <vector>
 
 #define WINDOW_WIDTH  1280
 #define WINDOW_HEIGHT 720
@@ -81,10 +82,23 @@ void update_ship_pos(SDL_Rect* rect_ship, int x=0, int y=0) {
   rect_ship->y = (y - 30);
 }
 
+void update_laser_pos(std::vector<SDL_Rect>& lasers, float delta, int speed=300) {
+    auto it = lasers.begin();
+    while (it != lasers.end()) {
+      it->y -= round(300 * delta);
+      if (it->y < 0) {
+        it = lasers.erase(it);
+      } else {
+        it++;
+      }
+    }
+}
+
 
 
 int main() {
   sdl_init();
+
   SDL_Window* window     = window_init();
   SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
 
@@ -99,8 +113,9 @@ int main() {
   SDL_Texture* texture_text  = texture_create(window, renderer, "assets/graphics/subatomic.ttf", ttf);
 
   SDL_Rect rect_text  = rect_create(texture_text, (WINDOW_WIDTH/2 - 80), (WINDOW_HEIGHT-80));
-  SDL_Rect rect_laser = rect_create(texture_laser, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
   SDL_Rect rect_ship  = rect_create(texture_ship, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
+
+  std::vector<SDL_Rect> lasers;
 
   // ------------------------------------------------------------------------------------
 
@@ -114,7 +129,6 @@ int main() {
   int frame_time;
   Uint32 frame_delay;
 
-
   bool quit = false;
   SDL_Event event;
   while (!quit) {
@@ -127,25 +141,35 @@ int main() {
     frame_delay = 1000 / framerate_target;
     if (frame_time < frame_delay) { SDL_Delay(frame_delay - frame_time); }
 
+
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
         quit = true;
       }
+
+      if (event.type == SDL_MOUSEBUTTONDOWN) {
+        SDL_Rect rect_laser = rect_create(texture_laser, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
+        rect_laser.x = rect_ship.x + 43;
+        rect_laser.y = rect_ship.y;
+        lasers.push_back(rect_laser);
+      }
     }
 
     update_ship_pos(&rect_ship);
-
-    if (rect_laser.y != -100) { rect_laser.y -= round(200 * delta); }
+    update_laser_pos(lasers, delta);
 
     SDL_RenderClear(renderer);
 
     SDL_RenderCopy(renderer, texture_bg, NULL, NULL);
-    SDL_RenderCopy(renderer, texture_ship, NULL, &rect_ship);
-    SDL_RenderCopy(renderer, texture_laser, NULL, &rect_laser);
     SDL_RenderCopy(renderer, texture_text, NULL, &rect_text);
 
-    SDL_RenderPresent(renderer);
+    for (SDL_Rect laser: lasers) {
+      SDL_RenderCopy(renderer, texture_laser, NULL, &laser);
+    }
 
+    SDL_RenderCopy(renderer, texture_ship, NULL, &rect_ship);
+
+    SDL_RenderPresent(renderer);
   }
   // ------------------------------------------------------------------------------------
 
