@@ -75,6 +75,14 @@ SDL_Rect rect_create(SDL_Texture* texture, int x, int y) {
   return rect;
 }
 
+void update_ship_pos(SDL_Rect* rect_ship, int x=0, int y=0) {
+  SDL_GetMouseState(&x, &y);
+  rect_ship->x = (x - 50);
+  rect_ship->y = (y - 30);
+}
+
+
+
 int main() {
   init();
   SDL_Window* window = window_init();
@@ -107,6 +115,7 @@ int main() {
       }
     }
 
+    update_ship_pos(&rect_ship);
 
     if (rect_ship.y > 0) rect_ship.y -= 4;
 
@@ -118,6 +127,7 @@ int main() {
 
     SDL_RenderPresent(renderer);
 
+    // Limit frames
     frame_time = SDL_GetTicks() - frame_start;
     if (frame_time < FRAME_DELAY) {SDL_Delay(FRAME_DELAY - frame_time);}
 
