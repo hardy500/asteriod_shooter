@@ -9,7 +9,7 @@
 
 enum Select { TTF, IMG };
 
-void init() {
+void sdl_init() {
   SDL_Init(SDL_INIT_VIDEO);
   TTF_Init();
 }
@@ -58,7 +58,7 @@ SDL_Texture* texture_create(SDL_Window* window,
         SDL_Quit();
       }
 
-      SDL_Color color_text = {255, 255, 255};
+      SDL_Color color_text      = {255, 255, 255};
       SDL_Surface* surface_text = TTF_RenderText_Solid(font, "Space", color_text);
       SDL_Texture* texture_text = SDL_CreateTextureFromSurface(renderer, surface_text);
       SDL_FreeSurface(surface_text);
@@ -84,20 +84,23 @@ void update_ship_pos(SDL_Rect* rect_ship, int x=0, int y=0) {
 
 
 int main() {
-  init();
-  SDL_Window* window = window_init();
+  sdl_init();
+  SDL_Window* window     = window_init();
   SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
 
   // ------------------------------------------------------------------------------------
+
   Select img = IMG;
   Select ttf = TTF;
 
-  SDL_Texture* texture_bg = texture_create(window, renderer, "assets/graphics/background.png", img);
-  SDL_Texture* texture_ship = texture_create(window, renderer, "assets/graphics/ship.png", img);
-  SDL_Texture* texture_text = texture_create(window, renderer, "assets/graphics/subatomic.ttf", ttf);
+  SDL_Texture* texture_bg    = texture_create(window, renderer, "assets/graphics/background.png", img);
+  SDL_Texture* texture_ship  = texture_create(window, renderer, "assets/graphics/ship.png", img);
+  SDL_Texture* texture_laser = texture_create(window, renderer, "assets/graphics/laser.png", img);
+  SDL_Texture* texture_text  = texture_create(window, renderer, "assets/graphics/subatomic.ttf", ttf);
 
-  SDL_Rect rect_text = rect_create(texture_text, (WINDOW_WIDTH/2 - 80), (WINDOW_HEIGHT-80));
-  SDL_Rect rect_ship = rect_create(texture_ship, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
+  SDL_Rect rect_text  = rect_create(texture_text, (WINDOW_WIDTH/2 - 80), (WINDOW_HEIGHT-80));
+  SDL_Rect rect_laser = rect_create(texture_laser, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
+  SDL_Rect rect_ship  = rect_create(texture_ship, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
 
   // ------------------------------------------------------------------------------------
 
@@ -117,12 +120,15 @@ int main() {
 
     update_ship_pos(&rect_ship);
 
-    if (rect_ship.y > 0) rect_ship.y -= 4;
+    if (rect_laser.y != -100) {
+      rect_laser.y -= 10;
+    }
 
     SDL_RenderClear(renderer);
 
     SDL_RenderCopy(renderer, texture_bg, NULL, NULL);
     SDL_RenderCopy(renderer, texture_ship, NULL, &rect_ship);
+    SDL_RenderCopy(renderer, texture_laser, NULL, &rect_laser);
     SDL_RenderCopy(renderer, texture_text, NULL, &rect_text);
 
     SDL_RenderPresent(renderer);
