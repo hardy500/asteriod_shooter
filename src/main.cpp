@@ -87,7 +87,7 @@ void update_ship(SDL_Rect* rect_ship, int x=0, int y=0) {
 void update_laser(std::vector<SDL_Rect>& lasers, float delta, int speed=300) {
     auto it = lasers.begin();
     while (it != lasers.end()) {
-      it->y -= round(300 * delta);
+      it->y -= round(speed * delta);
       if (it->y < 0) {
         it = lasers.erase(it);
       } else {
@@ -124,6 +124,40 @@ bool laser_timer(bool can_shoot, Uint32 time_shoot, int duration=500) {
     }
   }
   return can_shoot;
+}
+
+int check_collision_meteor_ship(std::vector<SDL_Rect>& rect1, SDL_Rect& rect2) {
+  for (auto r1 : rect1) {
+    if (SDL_HasIntersection(&r1, &rect2)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+void check_collision_meteor_laser(std::vector<SDL_Rect>& rect1, std::vector<SDL_Rect>& rect2) {
+  for (auto rect1_iter = rect1.begin(); rect1_iter != rect1.end();) {
+   bool collide = false;
+   for (auto rect2_iter = rect2.begin(); rect2_iter != rect2.end();) {
+     if (SDL_HasIntersection(&(*rect1_iter), &(*rect2_iter))) {
+       rect2_iter = rect2.erase(rect2_iter);
+       collide = true;
+     } else {
+       rect2_iter++;
+     }
+   }
+
+   if (collide) {
+     rect1_iter = rect1.erase(rect1_iter);
+   } else {
+     rect1_iter++;
+   }
+ }
+}
+
+void game_over(SDL_Window* window) {
+  SDL_DestroyWindow(window);
+  SDL_Quit();
 }
 
 int main() {
@@ -200,10 +234,16 @@ int main() {
       }
     }
 
+
     update_ship(&rect_ship);
     update_laser(lasers, delta);
     update_meteor(meteors, delta);
     can_shoot = laser_timer(can_shoot, time_shoot);
+
+    check_collision_meteor_laser(meteors, lasers);
+    if(check_collision_meteor_ship(meteors, rect_ship)) {
+      game_over(window);
+    }
 
     SDL_RenderClear(renderer);
 
@@ -219,7 +259,7 @@ int main() {
   }
   // ------------------------------------------------------------------------------------
 
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+  game_over(window);
+
   return 0;
 }
