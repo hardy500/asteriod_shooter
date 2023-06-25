@@ -59,7 +59,7 @@ SDL_Texture* texture_create(SDL_Window* window,
         SDL_Quit();
       }
 
-      SDL_Color color_text      = {255, 255, 255};
+      SDL_Color    color_text      = {255, 255, 255};
       SDL_Surface* surface_text = TTF_RenderText_Solid(font, "Space", color_text);
       SDL_Texture* texture_text = SDL_CreateTextureFromSurface(renderer, surface_text);
       SDL_FreeSurface(surface_text);
@@ -76,13 +76,13 @@ SDL_Rect rect_create(SDL_Texture* texture, int x, int y) {
   return rect;
 }
 
-void update_ship_pos(SDL_Rect* rect_ship, int x=0, int y=0) {
+void update_ship(SDL_Rect* rect_ship, int x=0, int y=0) {
   SDL_GetMouseState(&x, &y);
   rect_ship->x = (x - 50);
   rect_ship->y = (y - 30);
 }
 
-void update_laser_pos(std::vector<SDL_Rect>& lasers, float delta, int speed=300) {
+void update_laser(std::vector<SDL_Rect>& lasers, float delta, int speed=300) {
     auto it = lasers.begin();
     while (it != lasers.end()) {
       it->y -= round(300 * delta);
@@ -94,7 +94,15 @@ void update_laser_pos(std::vector<SDL_Rect>& lasers, float delta, int speed=300)
     }
 }
 
-
+bool laser_timer(bool can_shoot, Uint32 time_shoot, int duration=500) {
+  if (!can_shoot) {
+    Uint32 time_current = SDL_GetTicks();
+    if ((time_current - time_shoot) > duration) {
+      can_shoot = true;
+    }
+  }
+  return can_shoot;
+}
 
 int main() {
   sdl_init();
@@ -121,7 +129,10 @@ int main() {
 
   Uint32 ticks_previous = SDL_GetTicks();
   Uint32 ticks_current;
+  Uint32 time_shoot;
   float delta;
+  bool can_shoot = true;
+
 
   const float framerate_target = 120;
 
@@ -141,31 +152,32 @@ int main() {
     frame_delay = 1000 / framerate_target;
     if (frame_time < frame_delay) { SDL_Delay(frame_delay - frame_time); }
 
-
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
         quit = true;
       }
 
-      if (event.type == SDL_MOUSEBUTTONDOWN) {
+      if ((event.type == SDL_MOUSEBUTTONDOWN) && can_shoot) {
         SDL_Rect rect_laser = rect_create(texture_laser, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
         rect_laser.x = rect_ship.x + 43;
         rect_laser.y = rect_ship.y;
         lasers.push_back(rect_laser);
+
+        can_shoot = false;
+        time_shoot = SDL_GetTicks();
       }
     }
 
-    update_ship_pos(&rect_ship);
-    update_laser_pos(lasers, delta);
+    update_ship(&rect_ship);
+    update_laser(lasers, delta);
+    can_shoot = laser_timer(can_shoot, time_shoot);
 
     SDL_RenderClear(renderer);
 
     SDL_RenderCopy(renderer, texture_bg, NULL, NULL);
     SDL_RenderCopy(renderer, texture_text, NULL, &rect_text);
 
-    for (SDL_Rect laser: lasers) {
-      SDL_RenderCopy(renderer, texture_laser, NULL, &laser);
-    }
+    for (SDL_Rect laser: lasers) { SDL_RenderCopy(renderer, texture_laser, NULL, &laser); }
 
     SDL_RenderCopy(renderer, texture_ship, NULL, &rect_ship);
 
