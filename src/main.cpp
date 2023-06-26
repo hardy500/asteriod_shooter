@@ -1,6 +1,7 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 
 #include <math.h>
 #include <vector>
@@ -14,6 +15,8 @@ enum Select { TTF, IMG };
 
 void sdl_init() {
   SDL_Init(SDL_INIT_VIDEO);
+  SDL_Init(SDL_INIT_AUDIO);
+  Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
   TTF_Init();
 }
 
@@ -126,7 +129,7 @@ bool laser_timer(bool can_shoot, Uint32 time_shoot, int duration=500) {
   return can_shoot;
 }
 
-int check_collision_meteor_ship(std::vector<SDL_Rect>& rect1, SDL_Rect& rect2) {
+int collision_meteor_ship(std::vector<SDL_Rect>& rect1, SDL_Rect& rect2) {
   for (auto r1 : rect1) {
     if (SDL_HasIntersection(&r1, &rect2)) {
       return 1;
@@ -135,13 +138,45 @@ int check_collision_meteor_ship(std::vector<SDL_Rect>& rect1, SDL_Rect& rect2) {
   return 0;
 }
 
-void check_collision_meteor_laser(std::vector<SDL_Rect>& rect1, std::vector<SDL_Rect>& rect2) {
+int play_wav_sound(Mix_Chunk* sound, int loop=-1) {
+  if (!sound) {
+    printf("FAILED TO LOAD WAVE FILE: %s", Mix_GetError());
+    return 1;
+  }
+
+  int channel = Mix_PlayChannel(-1, sound, loop);
+  if (channel == -1) {
+    printf("FAILED TO PLAY WAVE FILE: %s\n", Mix_GetError());
+    return 1;
+  }
+
+  Mix_Playing(channel);
+  return 0;
+}
+
+int play_ogg_sound(Mix_Music* sound) {
+  if (!sound) {
+    printf("FAILED TO LOAD WAVE FILE: %s", Mix_GetError());
+    return 1;
+  }
+
+  if (Mix_PlayMusic(sound, 0) < 0) {
+    printf("FAILED TO PLAY MUSIC: %s", Mix_GetError());
+  };
+
+  Mix_PlayingMusic();
+  return 0;
+}
+
+
+void collision_meteor_laser(std::vector<SDL_Rect>& rect1, std::vector<SDL_Rect>& rect2, Mix_Chunk* sound) {
   for (auto rect1_iter = rect1.begin(); rect1_iter != rect1.end();) {
    bool collide = false;
    for (auto rect2_iter = rect2.begin(); rect2_iter != rect2.end();) {
      if (SDL_HasIntersection(&(*rect1_iter), &(*rect2_iter))) {
        rect2_iter = rect2.erase(rect2_iter);
        collide = true;
+       play_wav_sound(sound, 0);
      } else {
        rect2_iter++;
      }
@@ -152,13 +187,31 @@ void check_collision_meteor_laser(std::vector<SDL_Rect>& rect1, std::vector<SDL_
    } else {
      rect1_iter++;
    }
- }
+  }
 }
 
 void game_over(SDL_Window* window) {
   SDL_DestroyWindow(window);
   SDL_Quit();
 }
+
+void destroy_sound(Mix_Chunk* sound, Mix_Music* music) {
+  Mix_FreeChunk(sound);
+  Mix_FreeMusic(music);
+  Mix_CloseAudio();
+}
+
+typedef struct {
+  const char* bg = "assets/graphics/background.png";
+  const char* ship = "assets/graphics/ship.png";
+  const char* meteor =  "assets/graphics/meteor.png";
+  const char* laser = "assets/graphics/laser.png";
+  const char* text = "assets/graphics/subatomic.ttf";
+
+  const char* sound_bg = "assets/sound/music.wav";
+  const char* sound_explosion = "assets/sound/explosion.wav";
+  const char* sound_laser = "assets/sound/laser.ogg";
+} Path;
 
 int main() {
   sdl_init();
@@ -170,15 +223,21 @@ int main() {
 
   Select img = IMG;
   Select ttf = TTF;
+  Path path;
 
-  SDL_Texture* texture_bg      = texture_create(window, renderer, "assets/graphics/background.png", img);
-  SDL_Texture* texture_ship    = texture_create(window, renderer, "assets/graphics/ship.png", img);
-  SDL_Texture* texture_meteor  = texture_create(window, renderer, "assets/graphics/meteor.png", img);
-  SDL_Texture* texture_laser   = texture_create(window, renderer, "assets/graphics/laser.png", img);
-  SDL_Texture* texture_text    = texture_create(window, renderer, "assets/graphics/subatomic.ttf", ttf);
+  SDL_Texture* texture_bg      = texture_create(window, renderer, path.bg, img);
+  SDL_Texture* texture_ship    = texture_create(window, renderer, path.ship, img);
+  SDL_Texture* texture_meteor  = texture_create(window, renderer, path.meteor, img);
+  SDL_Texture* texture_laser   = texture_create(window, renderer, path.laser, img);
+  SDL_Texture* texture_text    = texture_create(window, renderer, path.text, ttf);
 
   SDL_Rect rect_text  = rect_create(texture_text, (WINDOW_WIDTH/2 - 80), (WINDOW_HEIGHT-80));
   SDL_Rect rect_ship  = rect_create(texture_ship, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
+
+  Mix_Chunk* sound_bg = Mix_LoadWAV(path.sound_bg);
+  Mix_Chunk* sound_explosion = Mix_LoadWAV(path.sound_explosion);
+  Mix_Music* sound_laser = Mix_LoadMUS(path.sound_laser);
+  play_wav_sound(sound_bg, -1);
 
   std::vector<SDL_Rect> lasers;
   std::vector<SDL_Rect> meteors;
@@ -222,7 +281,7 @@ int main() {
         rect_laser.x = rect_ship.x + 43;
         rect_laser.y = rect_ship.y;
         lasers.push_back(rect_laser);
-
+        play_ogg_sound(sound_laser);
         can_shoot = false;
         time_shoot = SDL_GetTicks();
       }
@@ -234,14 +293,13 @@ int main() {
       }
     }
 
-
     update_ship(&rect_ship);
     update_laser(lasers, delta);
     update_meteor(meteors, delta);
     can_shoot = laser_timer(can_shoot, time_shoot);
 
-    check_collision_meteor_laser(meteors, lasers);
-    if(check_collision_meteor_ship(meteors, rect_ship)) {
+    collision_meteor_laser(meteors, lasers, sound_explosion);
+    if (collision_meteor_ship(meteors, rect_ship)) {
       game_over(window);
     }
 
@@ -259,6 +317,7 @@ int main() {
   }
   // ------------------------------------------------------------------------------------
 
+  destroy_sound(sound_bg, sound_laser);
   game_over(window);
 
   return 0;
