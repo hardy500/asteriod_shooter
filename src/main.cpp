@@ -183,11 +183,10 @@ typedef struct {
   const char* sound_laser;
 } Path;
 
-void display_score(SDL_Renderer* renderer, const char* path) {
-  TTF_Font* font = TTF_OpenFont(path, 50);
+void display_score(SDL_Renderer* renderer, TTF_Font* font) {
   SDL_Surface* surface = TTF_RenderText_Solid(font, ("Score: " + std::to_string(SDL_GetTicks() / 1000)).c_str(), { 255, 255, 255 });
   SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-  SDL_Rect rect_text = { (WINDOW_WIDTH / 2) - (surface->w / 2), WINDOW_HEIGHT - 80, surface->w, surface->h };
+  SDL_Rect rect_text = { (WINDOW_WIDTH / 2) - (surface->w / 2), (WINDOW_HEIGHT - 80), surface->w, surface->h };
 
   SDL_RenderCopy(renderer, texture, NULL, &rect_text);
 
@@ -198,7 +197,6 @@ void display_score(SDL_Renderer* renderer, const char* path) {
 
 int main() {
   sdl_init();
-
   SDL_Window* window     = window_init();
   SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
 
@@ -220,6 +218,7 @@ int main() {
   SDL_Texture* texture_ship    = texture_create(window, renderer, path.ship);
   SDL_Texture* texture_meteor  = texture_create(window, renderer, path.meteor);
   SDL_Texture* texture_laser   = texture_create(window, renderer, path.laser);
+  TTF_Font* font = TTF_OpenFont(path.text, 50);
 
   SDL_Rect rect_ship  = rect_create(texture_ship, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
 
@@ -295,7 +294,7 @@ int main() {
     SDL_RenderClear(renderer);
 
     SDL_RenderCopy(renderer, texture_bg, NULL, NULL);
-    display_score(renderer, path.text);
+    display_score(renderer, font);
 
     for (SDL_Rect laser: lasers) { SDL_RenderCopy(renderer, texture_laser, NULL, &laser); }
     for (SDL_Rect meteor: meteors) { SDL_RenderCopy(renderer, texture_meteor, NULL, &meteor); }
