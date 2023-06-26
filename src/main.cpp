@@ -11,8 +11,6 @@
 #define WINDOW_WIDTH  1280
 #define WINDOW_HEIGHT 720
 
-enum Select { TTF, IMG };
-
 void sdl_init() {
   SDL_Init(SDL_INIT_VIDEO);
   SDL_Init(SDL_INIT_AUDIO);
@@ -32,47 +30,19 @@ SDL_Window* window_init() {
   return window;
 }
 
-SDL_Texture* texture_create(SDL_Window* window,
-                            SDL_Renderer* renderer,
-                            const char* path,
-                            Select select) {
-  // Load image
-  switch (select) {
-    case IMG: {
-      SDL_Surface* image = IMG_Load(path);
-      if(!image) {
-        printf("Image not found\n");
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-      }
-
-      // Create texture from loaded image
-      SDL_Texture* texture_img = SDL_CreateTextureFromSurface(renderer, image);
-      SDL_FreeSurface(image);
-      return texture_img;
-      break;
-    }
-
-    case TTF: {
-      // Create font
-      TTF_Font* font = TTF_OpenFont(path, 50);
-      if (!font) {
-        printf("NOT FONT FOUND\n");
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-      }
-
-      SDL_Color    color_text      = {255, 255, 255};
-      SDL_Surface* surface_text = TTF_RenderText_Solid(font, "Space", color_text);
-      SDL_Texture* texture_text = SDL_CreateTextureFromSurface(renderer, surface_text);
-      SDL_FreeSurface(surface_text);
-      return texture_text;
-      break;
-
-    }
+SDL_Texture* texture_create(SDL_Window* window, SDL_Renderer* renderer, const char* path) {
+  SDL_Surface* image = IMG_Load(path);
+  if(!image) {
+    printf("Image not found\n");
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
   }
+
+  // Create texture from loaded image
+  SDL_Texture* texture_img = SDL_CreateTextureFromSurface(renderer, image);
+  SDL_FreeSurface(image);
+  return texture_img;
 }
 
 SDL_Rect rect_create(SDL_Texture* texture, int x=0, int y=0) {
@@ -162,12 +132,11 @@ int play_ogg_sound(Mix_Music* sound) {
 
   if (Mix_PlayMusic(sound, 0) < 0) {
     printf("FAILED TO PLAY MUSIC: %s", Mix_GetError());
-  };
+  }
 
   Mix_PlayingMusic();
   return 0;
 }
-
 
 void collision_meteor_laser(std::vector<SDL_Rect>& rect1, std::vector<SDL_Rect>& rect2, Mix_Chunk* sound) {
   for (auto rect1_iter = rect1.begin(); rect1_iter != rect1.end();) {
@@ -190,7 +159,8 @@ void collision_meteor_laser(std::vector<SDL_Rect>& rect1, std::vector<SDL_Rect>&
   }
 }
 
-void game_over(SDL_Window* window) {
+void game_over(SDL_Window* window, SDL_Renderer* renderer) {
+  SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
 }
@@ -202,16 +172,29 @@ void destroy_sound(Mix_Chunk* sound, Mix_Music* music) {
 }
 
 typedef struct {
-  const char* bg = "assets/graphics/background.png";
-  const char* ship = "assets/graphics/ship.png";
-  const char* meteor =  "assets/graphics/meteor.png";
-  const char* laser = "assets/graphics/laser.png";
-  const char* text = "assets/graphics/subatomic.ttf";
+  const char* bg;
+  const char* ship;
+  const char* meteor;
+  const char* laser;
+  const char* text;
 
-  const char* sound_bg = "assets/sound/music.wav";
-  const char* sound_explosion = "assets/sound/explosion.wav";
-  const char* sound_laser = "assets/sound/laser.ogg";
+  const char* sound_bg;
+  const char* sound_explosion;
+  const char* sound_laser;
 } Path;
+
+void display_score(SDL_Renderer* renderer, const char* path) {
+  TTF_Font* font = TTF_OpenFont(path, 50);
+  SDL_Surface* surface = TTF_RenderText_Solid(font, ("Score: " + std::to_string(SDL_GetTicks() / 1000)).c_str(), { 255, 255, 255 });
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_Rect rect_text = { (WINDOW_WIDTH / 2) - (surface->w / 2), WINDOW_HEIGHT - 80, surface->w, surface->h };
+
+  SDL_RenderCopy(renderer, texture, NULL, &rect_text);
+
+  SDL_DestroyTexture(texture);
+  SDL_FreeSurface(surface);
+}
+
 
 int main() {
   sdl_init();
@@ -221,17 +204,23 @@ int main() {
 
   // ------------------------------------------------------------------------------------
 
-  Select img = IMG;
-  Select ttf = TTF;
   Path path;
+  path = {
+    .bg="assets/graphics/background.png",
+    .ship="assets/graphics/ship.png",
+    .meteor="assets/graphics/meteor.png",
+    .laser="assets/graphics/laser.png",
+    .text="assets/graphics/subatomic.ttf",
+    .sound_bg="assets/sound/music.wav",
+    .sound_explosion="assets/sound/explosion.wav",
+    .sound_laser="assets/sound/laser.ogg"
+  };
 
-  SDL_Texture* texture_bg      = texture_create(window, renderer, path.bg, img);
-  SDL_Texture* texture_ship    = texture_create(window, renderer, path.ship, img);
-  SDL_Texture* texture_meteor  = texture_create(window, renderer, path.meteor, img);
-  SDL_Texture* texture_laser   = texture_create(window, renderer, path.laser, img);
-  SDL_Texture* texture_text    = texture_create(window, renderer, path.text, ttf);
+  SDL_Texture* texture_bg      = texture_create(window, renderer, path.bg);
+  SDL_Texture* texture_ship    = texture_create(window, renderer, path.ship);
+  SDL_Texture* texture_meteor  = texture_create(window, renderer, path.meteor);
+  SDL_Texture* texture_laser   = texture_create(window, renderer, path.laser);
 
-  SDL_Rect rect_text  = rect_create(texture_text, (WINDOW_WIDTH/2 - 80), (WINDOW_HEIGHT-80));
   SDL_Rect rect_ship  = rect_create(texture_ship, (WINDOW_WIDTH/2 - 40), (WINDOW_HEIGHT/2));
 
   Mix_Chunk* sound_bg = Mix_LoadWAV(path.sound_bg);
@@ -300,13 +289,13 @@ int main() {
 
     collision_meteor_laser(meteors, lasers, sound_explosion);
     if (collision_meteor_ship(meteors, rect_ship)) {
-      game_over(window);
+      game_over(window, renderer);
     }
 
     SDL_RenderClear(renderer);
 
     SDL_RenderCopy(renderer, texture_bg, NULL, NULL);
-    SDL_RenderCopy(renderer, texture_text, NULL, &rect_text);
+    display_score(renderer, path.text);
 
     for (SDL_Rect laser: lasers) { SDL_RenderCopy(renderer, texture_laser, NULL, &laser); }
     for (SDL_Rect meteor: meteors) { SDL_RenderCopy(renderer, texture_meteor, NULL, &meteor); }
@@ -318,7 +307,7 @@ int main() {
   // ------------------------------------------------------------------------------------
 
   destroy_sound(sound_bg, sound_laser);
-  game_over(window);
+  game_over(window, renderer);
 
   return 0;
 }
