@@ -26,7 +26,7 @@ SDL_Window* window_init() {
                                         WINDOW_HEIGHT,
                                         0);
 
-  if (!window) { printf("Could not create window: %s\n", SDL_GetError()); }
+  if (!window) { SDL_Log("Could not create window: %s", SDL_GetError()); }
   return window;
 }
 
@@ -110,13 +110,13 @@ int collision_meteor_ship(std::vector<SDL_Rect>& rect1, SDL_Rect& rect2) {
 
 int play_wav_sound(Mix_Chunk* sound, int loop=-1) {
   if (!sound) {
-    printf("FAILED TO LOAD WAVE FILE: %s", Mix_GetError());
+    SDL_Log("FAILED TO LOAD WAVE FILE: %s", Mix_GetError());
     return 1;
   }
 
   int channel = Mix_PlayChannel(-1, sound, loop);
   if (channel == -1) {
-    printf("FAILED TO PLAY WAVE FILE: %s\n", Mix_GetError());
+    SDL_Log("FAILED TO PLAY WAVE FILE: %s\n", Mix_GetError());
     return 1;
   }
 
@@ -126,12 +126,12 @@ int play_wav_sound(Mix_Chunk* sound, int loop=-1) {
 
 int play_ogg_sound(Mix_Music* sound) {
   if (!sound) {
-    printf("FAILED TO LOAD WAVE FILE: %s", Mix_GetError());
+    SDL_Log("FAILED TO LOAD WAVE FILE: %s", Mix_GetError());
     return 1;
   }
 
   if (Mix_PlayMusic(sound, 0) < 0) {
-    printf("FAILED TO PLAY MUSIC: %s", Mix_GetError());
+    SDL_Log("FAILED TO PLAY MUSIC: %s", Mix_GetError());
   }
 
   Mix_PlayingMusic();
